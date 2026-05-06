@@ -15,3 +15,7 @@ class RAGQueryResult(pydantic.BaseModel):
     answer: str
     sources: list[str]
     num_contexts: int
+
+class RAGQuery(pydantic.BaseModel):
+    question: str
+    top_k: int = 5
