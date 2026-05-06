@@ -54,8 +54,8 @@ async def ingest_pdf(ingest_request: RAGIngestRequest):
     try:
         pdf_path = ingest_request.pdf_path
         source_id = ingest_request.source_id or pdf_path
-        chunks_and_src = await _load(pdf_path, source_id)
-        ingested = await _upsert(chunks_and_src)
+        chunks_and_src = _load(pdf_path, source_id)
+        ingested = _upsert(chunks_and_src)
         return {"ingested": ingested.ingested}
     except Exception as e:
         logging.error(f"Ingest endpoint error: {e}")
