@@ -7,7 +7,7 @@ import uuid
 import datetime
 from data_loader import load_and_chunk_pdf, embed_texts, client
 from vector_db import QdrantVectorDB
-from custom_types import RAGChunkAndSrc, RAGUpsertResult, RAGSearchResult, RAGQueryResult, RAGQuery
+from custom_types import RAGChunkAndSrc, RAGIngestRequest, RAGUpsertResult, RAGSearchResult, RAGQuery
 
 load_dotenv()
 
@@ -50,11 +50,10 @@ def _search(question: str, top_k: int = 5) -> RAGSearchResult:
 
 
 @app.post("/ingest")
-async def ingest_pdf(request: Request):
+async def ingest_pdf(ingest_request: RAGIngestRequest):
     try:
-        data = await request.json()
-        pdf_path = data["pdf_path"]
-        source_id = data.get("source_id", pdf_path)
+        pdf_path = ingest_request.pdf_path
+        source_id = ingest_request.source_id or pdf_path
         chunks_and_src = await _load(pdf_path, source_id)
         ingested = await _upsert(chunks_and_src)
         return {"ingested": ingested.ingested}

@@ -9,7 +9,7 @@ import uuid
 import datetime
 from data_loader import load_and_chunk_pdf, embed_texts
 from vector_db import QdrantVectorDB
-from custom_types import RAGChunkAndSrc, RAGUpsertResult, RAGSearchResult, RAGQueryResult
+from custom_types import RAGChunkAndSrc, RAGUpsertResult, RAGSearchResult
 
 load_dotenv()
 
@@ -90,8 +90,7 @@ async def rag_query_pdf(ctx: inngest.Context):
     return {"answer": answer, "sources": search_result.source, "num_contexts": len(search_result.contexts)}
 
 
+app_inngest = FastAPI()
 
-inngest_app = FastAPI()
-
-inngest.fast_api.serve(inngest_app, inngest_client, [rag_ingest_pdf, rag_query_pdf])
+inngest.fast_api.serve(app_inngest, inngest_client, [rag_ingest_pdf, rag_query_pdf])
 

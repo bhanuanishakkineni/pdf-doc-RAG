@@ -11,11 +11,10 @@ class RAGSearchResult(pydantic.BaseModel):
     contexts: list[str]
     source: list[str]
 
-class RAGQueryResult(pydantic.BaseModel):
-    answer: str
-    sources: list[str]
-    num_contexts: int
-
 class RAGQuery(pydantic.BaseModel):
     question: str
     top_k: int = 5
+
+class RAGIngestRequest(pydantic.BaseModel):
+    pdf_path: str
+    source_id: str = None

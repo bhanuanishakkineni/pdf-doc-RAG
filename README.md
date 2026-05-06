@@ -156,5 +156,6 @@ qa-rag-project/
 
 
 ### Qdrant dashboard
+```
 http://localhost:6333/dashboard
 ```
