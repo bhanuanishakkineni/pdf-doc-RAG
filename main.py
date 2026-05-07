@@ -1,5 +1,5 @@
 import logging
-from fastapi import FastAPI, Request, HTTPException
+from fastapi import FastAPI, Request, HTTPException, status
 import boto3
 from dotenv import load_dotenv
 import os
@@ -47,7 +47,6 @@ def _search(question: str, top_k: int = 5) -> RAGSearchResult:
     except Exception as e:
         logging.error(f"Error searching chunks: {e}")
         raise Exception(f"Failed to search chunks: {str(e)}")
-
 
 @app.post("/ingest")
 async def ingest_pdf(ingest_request: RAGIngestRequest):
@@ -99,3 +98,7 @@ async def query_pdf(query: RAGQuery):
     except Exception as e:
         logging.error(f"Query endpoint error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/health", status_code=status.HTTP_200_OK)
+async def health_check():
+    return {"status": "ok"}
