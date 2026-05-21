@@ -1,23 +1,39 @@
 import logging
 from fastapi import FastAPI, Request, HTTPException, status
+from fastapi.middleware.cors import CORSMiddleware
 import boto3
+from botocore.config import Config
 from dotenv import load_dotenv
 import os
 import uuid
 import datetime
-from data_loader import load_and_chunk_pdf, embed_texts, client
+import requests
+from data_loader import load_and_chunk_pdf, embed_texts, s3_client, client
 from vector_db import QdrantVectorDB
-from custom_types import RAGChunkAndSrc, RAGIngestRequest, RAGUpsertResult, RAGSearchResult, RAGQuery
+from custom_types import RAGChunkAndSrc, RAGIngestRequest, RAGUpsertResult, RAGSearchResult, RAGQuery, S3PresignRequest, S3UploadRequest
 
 load_dotenv()
 
 app = FastAPI()
 
-def _load(pdf_path: str, source_id: str) -> RAGChunkAndSrc:
-    # pdf_path = ctx.event.data["pdf_path"]
-    # source_id = ctx.event.data.get("source_id", pdf_path)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["localhost:5173", "http://localhost:5173"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# s3_client = boto3.client("s3", region_name=os.getenv("AWS_REGION"), aws_access_key_id=os.getenv("AWS_ACCESS_KEY_ID"), aws_secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY"), endpoint_url="https://s3.us-west-2.amazonaws.com", config=Config(signature_version="s3v4"))
+
+# print("s3_client configured with bucket:", os.getenv("S3_BUCKET_NAME"))
+# print("S3 client region:", s3_client.meta.region_name)
+
+def _load(pdf_key: str, source_id: str) -> RAGChunkAndSrc:
+    # pdf_key = ctx.event.data["pdf_key"]
+    # source_id = ctx.event.data.get("source_id", pdf_key)
     try:
-        chunks = load_and_chunk_pdf(pdf_path)
+        chunks = load_and_chunk_pdf(pdf_key)
         return RAGChunkAndSrc(chunks=chunks, source_id=source_id)
     except Exception as e:
         logging.error(f"Error loading and chunking PDF: {e}")
@@ -48,12 +64,29 @@ def _search(question: str, top_k: int = 5) -> RAGSearchResult:
         logging.error(f"Error searching chunks: {e}")
         raise Exception(f"Failed to search chunks: {str(e)}")
 
+@app.post("/docs/presign", status_code=status.HTTP_200_OK)
+async def presign_docs(S3PresignRequest: S3PresignRequest):
+    key = f"pdfs/{uuid.uuid4()}.pdf"
+    presigned_url = s3_client.generate_presigned_url("put_object", Params={"Bucket": os.getenv("S3_BUCKET_NAME"), "Key": key, "ContentType": "application/pdf"}, ExpiresIn=3600)
+    return {"presigned_url": presigned_url, "key": key}
+
+# Only for testing with local files - in production, the frontend should upload directly to S3 using the presigned URL
+@app.post("/docs/upload", status_code=status.HTTP_200_OK)
+async def upload_docs(s3Upload: S3UploadRequest):
+    with open(s3Upload.file_path, "rb") as f:
+        response = requests.put(s3Upload.presigned_url, headers={"Content-Type": "application/pdf"}, data=f)
+        if response.status_code != 200:
+            logging.error(f"S3 upload failed: {response.text}")
+            raise HTTPException(status_code=500, detail="Failed to upload file to S3")
+    return {"message": "Docs uploaded successfully"}
+
+
 @app.post("/ingest")
 async def ingest_pdf(ingest_request: RAGIngestRequest):
     try:
-        pdf_path = ingest_request.pdf_path
-        source_id = ingest_request.source_id or pdf_path
-        chunks_and_src = _load(pdf_path, source_id)
+        pdf_key = ingest_request.pdf_key
+        source_id = ingest_request.source_id or pdf_key
+        chunks_and_src = _load(pdf_key, source_id)
         ingested = _upsert(chunks_and_src)
         return {"ingested": ingested.ingested}
     except Exception as e:

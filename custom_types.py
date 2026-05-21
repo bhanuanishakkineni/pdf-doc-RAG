@@ -16,5 +16,11 @@ class RAGQuery(pydantic.BaseModel):
     top_k: int = 5
 
 class RAGIngestRequest(pydantic.BaseModel):
-    pdf_path: str
+    pdf_key: str
     source_id: str = None
+
+class S3UploadRequest(pydantic.BaseModel):
+    presigned_url: str
+    file_path: str
+class S3PresignRequest(pydantic.BaseModel):
+    pdf_name: str
